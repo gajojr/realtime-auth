@@ -7,7 +7,6 @@ const http = require('http');
 const server = http.createServer(app);
 const socketio = require('socket.io');
 const io = socketio(server);
-const socketioJwt = require('socketio-jwt');
 // const auth = require('./middleware/auth');
 const { registerUser, dbConnection } = require('./db/mongoose');
 
@@ -20,13 +19,15 @@ app.use(express.static(publicDirectoryPath));
 dbConnection();
 
 io.on('connection', socket => {
-    socket.on('authenticate', token => {
-        socketioJwt.authorize({
-            secret: process.env.JWT_KEYWORD,
-            timeout: 15000 // 15 seconds to send the authentication message
-        })
-
-        socket.emit('authenticated', 'ack');
+    socket.on('authenticate', async username => {
+        try {
+            const user = username;
+            const token = await registerUser(user);
+            socket.emit('authenticated', { user, token });
+        } catch (err) {
+            console.log(err);
+            res.status(500).send(err);
+        }
     });
 
     // socket.on('authenticated', socket => {
@@ -41,15 +42,15 @@ io.on('connection', socket => {
 //     });
 // });
 
-app.post('/register', async(req, res) => {
-    try {
-        const user = await req.body;
-        const token = await registerUser(user);
-        res.send({ user, token });
-    } catch (err) {
-        console.log(err);
-        res.status(500).send(err);
-    }
-});
+// app.post('/register', async(req, res) => {
+//     try {
+//         const user = await req.body;
+//         const token = await registerUser(user);
+//         res.send({ user, token });
+//     } catch (err) {
+//         console.log(err);
+//         res.status(500).send(err);
+//     }
+// });
 
 server.listen(PORT);
